@@ -1,52 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Editor from './components/Editor';
 import PDFPreview from './components/PDFPreview';
 import Header from './components/Header';
-import defaultLatexTemplate from './templates/default';
+import AIAssistant from './components/AIAssistant';
+import Sidebar from './components/Sidebar';
+import templates from './templates';
 import { compileLatex } from './services/api';
 import debounce from 'lodash.debounce';
-import './App.css';
-
-// Fallback styles in case Tailwind doesn't load
-const styles = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100vh',
-    backgroundColor: '#f3f4f6',
-  },
-  header: {
-    backgroundColor: '#1f2937',
-    color: 'white',
-    padding: '1rem',
-  },
-  content: {
-    display: 'flex',
-    flex: 1,
-    overflow: 'hidden',
-  },
-  leftPane: {
-    width: '50%',
-    height: '100%',
-  },
-  rightPane: {
-    width: '50%',
-    height: '100%',
-    borderLeft: '1px solid #e5e7eb',
-  },
-  errorContainer: {
-    padding: '1rem',
-    color: '#dc2626',
-    backgroundColor: '#fee2e2',
-  }
-};
+import './styles/App.css';
 
 function App() {
-  const [latexCode, setLatexCode] = useState(defaultLatexTemplate);
+  const [activeTemplate, setActiveTemplate] = useState('default');
+  const [latexCode, setLatexCode] = useState(templates[activeTemplate]?.template || '');
   const [pdfUrl, setPdfUrl] = useState(null);
   const [isCompiling, setIsCompiling] = useState(false);
   const [error, setError] = useState(null);
-
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
+  const [isSplitView, setIsSplitView] = useState(true);
+  const [customTemplateName, setCustomTemplateName] = useState('');
+  const appRef = useRef(null);
+  
   // Create a debounced compile function
   const debouncedCompile = React.useCallback(
     debounce(async (code) => {
@@ -67,8 +42,23 @@ function App() {
 
   // Trigger compilation when latex code changes
   useEffect(() => {
-    debouncedCompile(latexCode);
+    if (latexCode && latexCode.trim()) {
+      debouncedCompile(latexCode);
+    } else {
+      setPdfUrl(null);
+      setError(null);
+      setIsCompiling(false);
+    }
   }, [latexCode, debouncedCompile]);
+
+  // Apply theme based on darkMode setting
+  useEffect(() => {
+    if (darkMode) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+  }, [darkMode]);
 
   const handleEditorChange = (value) => {
     setLatexCode(value);
@@ -84,27 +74,96 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
+  const handleApplyAIChanges = (newLatexCode) => {
+    console.log("App.js: handleApplyAIChanges called with new code (preview):", newLatexCode.substring(0, 100) + "..."); // Log: Received code
+    setLatexCode(newLatexCode);
+    console.log("App.js: latexCode state updated."); // Log: State updated
+  };
+  
+  // Modified handleTemplateChange to accept a custom name
+  const handleTemplateChange = (templateId, customName = '') => {
+    if (templates[templateId]) {
+      setActiveTemplate(templateId);
+      setLatexCode(templates[templateId].template);
+      if (customName) {
+        setCustomTemplateName(customName);
+      } else {
+        setCustomTemplateName('');
+      }
+      setError(null);
+      setPdfUrl(null);
+    }
+  };
+  
+  // Get template name, with custom name taking precedence
+  const activeTemplateName = customTemplateName || templates[activeTemplate]?.name || 'Default';
+
+  const toggleView = () => {
+    setIsSplitView(!isSplitView);
+  };
+
   return (
-    <div className="flex flex-col h-screen bg-gray-100" style={styles.container}>
-      <Header onSave={handleSave} isCompiling={isCompiling} />
-      <div className="flex flex-1 overflow-hidden" style={styles.content}>
-        <div className="w-1/2 h-full" style={styles.leftPane}>
-          <Editor 
-            value={latexCode} 
-            onChange={handleEditorChange} 
+    <div className={`app-container ${darkMode ? 'dark-mode' : ''}`} ref={appRef}>
+      <Header 
+        onSave={handleSave}
+        isCompiling={isCompiling}
+        onToggleAI={() => setShowAIAssistant(!showAIAssistant)}
+        showAIAssistant={showAIAssistant}
+        onToggleSidebar={() => setShowSidebar(!showSidebar)}
+        showSidebar={showSidebar}
+        onToggleDarkMode={() => setDarkMode(!darkMode)}
+        isDarkMode={darkMode}
+        onToggleView={toggleView}
+        isSplitView={isSplitView}
+      />
+      
+      <div className="main-content">
+        {showSidebar && (
+          <Sidebar 
+            activeTemplate={activeTemplate} 
+            onTemplateChange={handleTemplateChange}
+            templates={templates}
           />
-        </div>
-        <div className="w-1/2 h-full border-l border-gray-300" style={styles.rightPane}>
-          {error ? (
-            <div className="p-4 text-red-600 bg-red-100" style={styles.errorContainer}>
-              <h3 className="font-bold">Compilation Error</h3>
-              <pre className="mt-2 whitespace-pre-wrap">{error}</pre>
+        )}
+        
+        <div className={`editor-preview-container ${isSplitView ? 'split-view' : 'full-view'}`}>
+          {(isSplitView || !pdfUrl) && (
+            <div className="editor-container">
+              <Editor 
+                value={latexCode} 
+                onChange={handleEditorChange}
+                darkMode={darkMode}
+              />
             </div>
-          ) : (
-            <PDFPreview pdfUrl={pdfUrl} isCompiling={isCompiling} />
+          )}
+          
+          {(isSplitView || (pdfUrl && !isSplitView)) && (
+            <div className="preview-container">
+              {error ? (
+                <div className="error-container">
+                  <h3>Compilation Error</h3>
+                  <pre>{error}</pre>
+                </div>
+              ) : (
+                <PDFPreview 
+                  pdfUrl={pdfUrl} 
+                  isCompiling={isCompiling} 
+                  darkMode={darkMode}
+                />
+              )}
+            </div>
           )}
         </div>
       </div>
+      
+      {showAIAssistant && (
+        <AIAssistant 
+          latexCode={latexCode} 
+          onApplyChanges={handleApplyAIChanges}
+          darkMode={darkMode} 
+          activeTemplateName={activeTemplateName}
+        />
+      )}
     </div>
   );
 }

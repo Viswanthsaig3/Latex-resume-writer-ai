@@ -1,70 +1,85 @@
 import React from 'react';
+import '../styles/Header.css';
 
-// Fallback styles
-const styles = {
-  header: {
-    backgroundColor: '#1f2937',
-    color: 'white',
-    padding: '1rem',
-  },
-  container: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    maxWidth: '1280px',
-    margin: '0 auto',
-  },
-  title: {
-    fontSize: '1.25rem',
-    fontWeight: 'bold',
-  },
-  buttonContainer: {
-    display: 'flex',
-    gap: '1rem',
-  },
-  saveButton: {
-    padding: '0.5rem 1rem',
-    backgroundColor: '#3b82f6',
-    color: 'white',
-    borderRadius: '0.25rem',
-    cursor: 'pointer',
-  },
-  downloadButton: {
-    padding: '0.5rem 1rem',
-    backgroundColor: '#10b981',
-    color: 'white',
-    borderRadius: '0.25rem',
-    cursor: 'pointer',
-  }
-};
-
-function Header({ onSave, isCompiling }) {
+function Header({ 
+  onSave, 
+  isCompiling, 
+  onToggleAI, 
+  showAIAssistant, 
+  onToggleSidebar,
+  showSidebar,
+  onToggleDarkMode,
+  isDarkMode,
+  onToggleView,
+  isSplitView 
+}) {
   return (
-    <header className="bg-gray-800 text-white p-4" style={styles.header}>
-      <div className="container mx-auto flex justify-between items-center" style={styles.container}>
-        <h1 className="text-xl font-bold" style={styles.title}>LaTeX Resume Editor</h1>
-        <div className="flex space-x-4" style={styles.buttonContainer}>
-          <button
-            onClick={onSave}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded"
-            style={styles.saveButton}
-          >
-            Save .tex
-          </button>
-          <a
-            href="http://localhost:5001/download"
-            className={`px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded ${
-              isCompiling ? 'opacity-50' : ''
-            }`}
-            style={{
-              ...styles.downloadButton,
-              opacity: isCompiling ? 0.5 : 1,
-              pointerEvents: isCompiling ? 'none' : 'auto'
-            }}
-          >
-            Download PDF
-          </a>
-        </div>
+    <header className={`app-header ${isDarkMode ? 'dark-mode' : ''}`}>
+      <div className="header-left">
+        <button 
+          className="icon-button sidebar-toggle"
+          onClick={onToggleSidebar}
+          title={showSidebar ? "Hide templates" : "Show templates"}
+        >
+          <i className={`fa fa-${showSidebar ? 'times' : 'bars'}`}></i>
+        </button>
+        <h1>LaTeX Resume Editor</h1>
+      </div>
+      
+      <div className="header-center">
+        {isCompiling && (
+          <div className="compiling-indicator">
+            <div className="spinner"></div>
+            <span>Compiling...</span>
+          </div>
+        )}
+      </div>
+      
+      <div className="header-right">
+        <button 
+          className={`tool-button ${showAIAssistant ? 'active' : ''}`}
+          onClick={onToggleAI}
+          title={showAIAssistant ? "Hide AI Assistant" : "Show AI Assistant"}
+        >
+          <i className="fa fa-robot"></i>
+          <span>AI Assistant</span>
+        </button>
+        
+        <button 
+          className="tool-button"
+          onClick={onToggleView}
+          title={isSplitView ? "Full View" : "Split View"}
+        >
+          <i className={`fa fa-${isSplitView ? 'expand' : 'columns'}`}></i>
+          <span>{isSplitView ? "Full View" : "Split View"}</span>
+        </button>
+        
+        <button 
+          className="tool-button"
+          onClick={onToggleDarkMode}
+          title={isDarkMode ? "Light Mode" : "Dark Mode"}
+        >
+          <i className={`fa fa-${isDarkMode ? 'sun' : 'moon'}`}></i>
+          <span>{isDarkMode ? "Light Mode" : "Dark Mode"}</span>
+        </button>
+        
+        <button 
+          className="tool-button"
+          onClick={onSave}
+          title="Save as .tex file"
+        >
+          <i className="fa fa-save"></i>
+          <span>Save .tex</span>
+        </button>
+        
+        <a 
+          className="tool-button download-btn"
+          href="http://localhost:5001/download"
+          title="Download PDF"
+        >
+          <i className="fa fa-file-pdf"></i>
+          <span>Download PDF</span>
+        </a>
       </div>
     </header>
   );

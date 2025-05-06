@@ -1,0 +1,164 @@
+/* Base App Styles */
+:root {
+  --primary-color: #4F46E5;
+  --secondary-color: #10B981;
+  --bg-color: #f9fafb;
+  --text-color: #1f2937;
+  --border-color: #e5e7eb;
+  --header-bg: #ffffff;
+  --sidebar-bg: #ffffff;
+  --editor-bg: #ffffff;
+  --preview-bg: #ffffff;
+  --code-bg: #f8fafc;
+  --error-color: #dc2626;
+  --warning-color: #f97316;
+  --success-color: #10B981;
+  --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --transition: all 0.2s ease;
+}
+
+/* Dark Mode Colors */
+.dark-mode {
+  --bg-color: #171717;
+  --text-color: #e5e7eb;
+  --border-color: #374151;
+  --header-bg: #1f2937;
+  --sidebar-bg: #1f2937;
+  --editor-bg: #1e1e1e;
+  --preview-bg: #1f2937;
+  --code-bg: #111827;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  line-height: 1.5;
+  transition: var(--transition);
+  overflow: hidden;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.editor-preview-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  transition: var(--transition);
+}
+
+.editor-preview-container.split-view {
+  flex-direction: row;
+}
+
+.editor-preview-container.full-view {
+  flex-direction: column;
+}
+
+.editor-container, 
+.preview-container {
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  transition: var(--transition);
+}
+
+.editor-container {
+  border-right: 1px solid var(--border-color);
+}
+
+/* Error container */
+.error-container {
+  padding: 1rem;
+  background-color: rgba(220, 38, 38, 0.1);
+  border-left: 4px solid var(--error-color);
+  color: var(--error-color);
+  height: 100%;
+  overflow: auto;
+}
+
+.error-container h3 {
+  font-size: 1.2rem;
+  margin-bottom: 0.75rem;
+}
+
+.error-container pre {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 1rem;
+  border-radius: 0.25rem;
+}
+
+/* Spinner Animation */
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: var(--primary-color);
+  animation: spin 1s ease-in-out infinite;
+}
+
+.spinner.large {
+  width: 40px;
+  height: 40px;
+  border-width: 3px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Utility classes */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 1rem;
+  color: var(--text-color);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .editor-preview-container.split-view {
+    flex-direction: column;
+  }
+  
+  .editor-container,
+  .preview-container {
+    height: 50%;
+  }
+  
+  .editor-container {
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+  }
+}
