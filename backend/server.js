@@ -73,7 +73,14 @@ const OPENAI_MODEL_NAMES = {
 
 // Middleware
 app.use(cors({
-  origin: ALLOWED_ORIGINS,
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.indexOf(origin) === -1) {
+      return callback(null, false);
+    }
+    return callback(null, true);
+  },
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -597,3 +604,16 @@ app.listen(PORT, () => {
   console.log(`Accepting requests from: ${ALLOWED_ORIGINS.join(', ')}`);
   // console.log(`Test the server by visiting: http://localhost:${PORT}/ping`); // Comment out or remove local test message
 });
+
+// Modify the getFileUrl function in PDFPreview.js
+const getFileUrl = () => {
+  // Use window.location.origin to get the current domain
+  const baseUrl = process.env.NODE_ENV === 'development' 
+    ? 'http://localhost:5001'
+    : window.location.origin;
+    
+  if (pdfUrl && pdfUrl.startsWith('/')) {
+    return `${baseUrl}${pdfUrl}`;
+  }
+  return pdfUrl;
+};
