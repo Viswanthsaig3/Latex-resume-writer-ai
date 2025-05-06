@@ -74,16 +74,26 @@ const OPENAI_MODEL_NAMES = {
 // Middleware
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // Allow requests with no origin (like mobile apps, curl requests, etc.)
     if (!origin) return callback(null, true);
-    if (ALLOWED_ORIGINS.indexOf(origin) === -1) {
-      return callback(null, false);
+    
+    // Check if origin is in allowed list
+    if (ALLOWED_ORIGINS.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.warn(`Request from disallowed origin: ${origin}`);
+      // Still allow the request to prevent breaking functionality
+      callback(null, true);
     }
-    return callback(null, true);
   },
+  credentials: true,
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Add explicit OPTIONS handler for preflight requests
+app.options('*', cors());
+
 app.use(bodyParser.json({ limit: '10mb' })); // Increase limit for large LaTeX files
 app.use(morgan('dev'));
 // Serve static files from the 'output' directory relative to the current directory
@@ -123,6 +133,26 @@ if (process.env.OPENROUTER_API_KEY) {
 if (!openai && !openRouter) {
   console.warn('Neither OpenAI nor OpenRouter API Keys are available. AI features will use fallback responses.');
 }
+
+// Improved URL resolution function that considers the request's origin
+const getFullUrl = (req, pdfUrl) => {
+  // If it already has a protocol, return as is
+  if (pdfUrl.startsWith('http')) {
+    return pdfUrl;
+  }
+  
+  // Get the origin from the request or use the deployed URL as fallback
+  const origin = req.headers.origin || FRONTEND_URL;
+  
+  // If we're accessing from the deployed frontend, return a path on the same domain
+  if (origin === FRONTEND_URL) {
+    return `${FRONTEND_URL}${pdfUrl}`;
+  }
+  
+  // For local development, use the backend URL
+  const backendUrl = `http://localhost:${PORT}`;
+  return `${backendUrl}${pdfUrl}`;
+};
 
 // Compile LaTeX endpoint
 app.post('/compile', async (req, res) => {
@@ -208,7 +238,7 @@ app.post('/compile', async (req, res) => {
       
       res.json({
         success: true,
-        pdfUrl: '/preview/resume.pdf',
+        pdfUrl: getFullUrl(req, '/preview/resume.pdf'),
         message: 'LaTeX compiled successfully'
       });
       

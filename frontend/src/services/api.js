@@ -1,7 +1,24 @@
 import axios from 'axios';
 
-// Use environment variable for API URL, fallback for local development
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+// Smart API URL detection
+const getApiUrl = () => {
+  // If an environment variable is set, use that
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  // If we're running on the deployed domain, use the deployed backend URL
+  if (window.location.hostname === 'latex-resume-writer-ai-1.onrender.com') {
+    return 'https://latex-resume-writer-ai-1.onrender.com';
+  }
+  
+  // Default to localhost for development
+  return 'http://localhost:5001';
+};
+
+const API_URL = getApiUrl();
+
+console.log('Using API URL:', API_URL);
 
 export const compileLatex = async (latexCode) => {
   try {
