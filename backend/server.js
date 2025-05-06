@@ -83,7 +83,7 @@ app.use(morgan('dev'));
 app.use('/preview', express.static(path.join(__dirname, 'output'))); 
 
 // Create output directory if it doesn't exist
-const outputDir = path.join(__dirname, 'output');
+const outputDir = process.env.OUTPUT_DIR || path.join(__dirname, 'output');
 fs.ensureDirSync(outputDir);
 
 // Initialize OpenAI APIs
@@ -185,8 +185,19 @@ app.post('/compile', async (req, res) => {
       const outputPdf = path.join(outputDir, 'resume.pdf');
       await fs.copy(pdfPath, outputPdf, { overwrite: true });
       
+      // After successful compilation
+      console.log(`PDF generated at: ${pdfPath}`);
+      console.log(`PDF copied to: ${outputPdf}`);
+      console.log(`PDF should be accessible at: /preview/resume.pdf`);
+      
       // Clean up session directory
       await fs.remove(sessionDir);
+      
+      // Before sending the response
+      console.log(`Sending response: ${JSON.stringify({
+        success: true,
+        pdfUrl: '/preview/resume.pdf'
+      })}`);
       
       res.json({
         success: true,
