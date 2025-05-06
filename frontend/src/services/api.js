@@ -1,12 +1,28 @@
 import axios from 'axios';
 
-// Use environment variable for API URL, fallback for local development
-// Use relative path if the URL is the same origin as the frontend
-const API_URL = process.env.REACT_APP_API_URL || '';
+// Smart API URL detection
+const getApiUrl = () => {
+  // If an environment variable is set, use that
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  // If we're running on the deployed domain, use the deployed backend URL
+  if (window.location.hostname === 'latex-resume-writer-ai-1.onrender.com') {
+    return 'https://latex-resume-writer-ai-1.onrender.com';
+  }
+  
+  // Default to localhost for development
+  return 'http://localhost:5001';
+};
+
+const API_URL = getApiUrl();
+
+console.log('Using API URL:', API_URL);
 
 export const compileLatex = async (latexCode) => {
   try {
-    console.log('Sending LaTeX to server at:', API_URL || 'current origin'); // Log the actual URL being used
+    console.log('Sending LaTeX to server at:', API_URL); // Log the actual URL being used
     const response = await axios.post(`${API_URL}/compile`, { latex: latexCode });
     console.log('Server response:', response.data);
     return response.data;
@@ -19,7 +35,7 @@ export const compileLatex = async (latexCode) => {
 // Add function to get AI models (if not already present or needs update)
 export const getAIModels = async () => {
   try {
-    console.log('Fetching AI models from:', API_URL || 'current origin');
+    console.log('Fetching AI models from:', API_URL);
     const response = await axios.get(`${API_URL}/ai/models`);
     console.log('AI Models response:', response.data);
     return response.data.models || []; // Ensure it returns an array

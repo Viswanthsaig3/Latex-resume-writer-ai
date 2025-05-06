@@ -26,10 +26,7 @@ const PORT = process.env.PORT || 5001;
 const FRONTEND_URL = 'https://latex-resume-writer-ai-1.onrender.com'; // Always include deployed frontend
 const LOCAL_URL = 'http://localhost:3000';
 
-// Add Render's backend URL to allowed origins
-const RENDER_BACKEND_URL = 'https://latex-resume-writer-ai-1.onrender.com';
-// Add all possible variations of allowed origins
-const ALLOWED_ORIGINS = [FRONTEND_URL, LOCAL_URL, RENDER_BACKEND_URL, 'https://www.latex-resume-writer-ai-1.onrender.com'];
+const ALLOWED_ORIGINS = [FRONTEND_URL, LOCAL_URL];
 
 // Available AI models through OpenRouter and OpenAI
 const AI_MODELS = {
@@ -77,23 +74,26 @@ const OPENAI_MODEL_NAMES = {
 // Middleware
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl requests, or same-origin requests)
+    // Allow requests with no origin (like mobile apps, curl requests, etc.)
     if (!origin) return callback(null, true);
     
-    // Check if the origin is allowed
-    if (ALLOWED_ORIGINS.indexOf(origin) === -1) {
-      console.warn(`Request from unauthorized origin: ${origin}`);
-      // Instead of blocking, allow with a warning (you can change this to block if needed)
-      // return callback(null, false);
+    // Check if origin is in allowed list
+    if (ALLOWED_ORIGINS.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.warn(`Request from disallowed origin: ${origin}`);
+      // Still allow the request to prevent breaking functionality
+      callback(null, true);
     }
-    
-    // Allow the request with the appropriate origin
-    return callback(null, true);
   },
-  credentials: true, // Allow credentials
-  methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Add explicit OPTIONS handler for preflight requests
+app.options('*', cors());
+
 app.use(bodyParser.json({ limit: '10mb' })); // Increase limit for large LaTeX files
 app.use(morgan('dev'));
 // Serve static files from the 'output' directory relative to the current directory
@@ -133,6 +133,26 @@ if (process.env.OPENROUTER_API_KEY) {
 if (!openai && !openRouter) {
   console.warn('Neither OpenAI nor OpenRouter API Keys are available. AI features will use fallback responses.');
 }
+
+// Improved URL resolution function that considers the request's origin
+const getFullUrl = (req, pdfUrl) => {
+  // If it already has a protocol, return as is
+  if (pdfUrl.startsWith('http')) {
+    return pdfUrl;
+  }
+  
+  // Get the origin from the request or use the deployed URL as fallback
+  const origin = req.headers.origin || FRONTEND_URL;
+  
+  // If we're accessing from the deployed frontend, return a path on the same domain
+  if (origin === FRONTEND_URL) {
+    return `${FRONTEND_URL}${pdfUrl}`;
+  }
+  
+  // For local development, use the backend URL
+  const backendUrl = `http://localhost:${PORT}`;
+  return `${backendUrl}${pdfUrl}`;
+};
 
 // Compile LaTeX endpoint
 app.post('/compile', async (req, res) => {
@@ -218,7 +238,7 @@ app.post('/compile', async (req, res) => {
       
       res.json({
         success: true,
-        pdfUrl: '/preview/resume.pdf',
+        pdfUrl: getFullUrl(req, '/preview/resume.pdf'),
         message: 'LaTeX compiled successfully'
       });
       
@@ -607,31 +627,6 @@ app.get('/ping', (req, res) => {
   res.json({ message: 'Backend server is running' });
 });
 
-// Add a custom CORS header middleware for specific routes
-const corsHeaderMiddleware = (req, res, next) => {
-  const origin = req.headers.origin;
-  if (origin) {
-    res.header('Access-Control-Allow-Origin', origin);
-  } else {
-    res.header('Access-Control-Allow-Origin', '*');
-  }
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  // Handle preflight OPTIONS request
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  
-  next();
-};
-
-// Apply the custom CORS middleware to specific routes with CORS issues
-app.use('/preview', corsHeaderMiddleware);
-app.use('/ai/models', corsHeaderMiddleware);
-app.use('/ai/improve-resume', corsHeaderMiddleware);
-
 // Start server
 app.listen(PORT, () => {
   // Render injects the host automatically, listen on 0.0.0.0 for Docker compatibility
@@ -639,23 +634,6 @@ app.listen(PORT, () => {
   console.log(`Accepting requests from: ${ALLOWED_ORIGINS.join(', ')}`);
   // console.log(`Test the server by visiting: http://localhost:${PORT}/ping`); // Comment out or remove local test message
 });
-
-// Update the getFullPdfUrl function to handle both local and deployed environments
-const getFullPdfUrl = (pdfUrl) => {
-  // Check if already a full URL
-  if (pdfUrl.startsWith('http')) {
-    return pdfUrl;
-  }
-  
-  // If running on Render, use the Render URL
-  if (isRunningOnRender) {
-    return `${RENDER_BACKEND_URL}${pdfUrl}`;
-  }
-  
-  // For local development, use localhost URL
-  const baseUrl = `http://localhost:${PORT}`;
-  return `${baseUrl}${pdfUrl}`;
-};
 
 // Modify the getFileUrl function in PDFPreview.js
 const getFileUrl = () => {
