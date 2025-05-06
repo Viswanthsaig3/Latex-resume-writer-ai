@@ -28,6 +28,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 1rem;
 }
 
 .compiling-indicator {
@@ -98,6 +99,29 @@
 
 .tool-button.download-btn:hover {
   background-color: #0ea271;
+}
+
+.tool-button.compile-btn {
+  background-color: var(--primary-color);
+  color: white;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+}
+
+.tool-button.compile-btn:hover {
+  background-color: #4338ca;
+}
+
+.tool-button.compile-btn:disabled {
+  background-color: #a5b4fc;
+  cursor: not-allowed;
+}
+
+.tool-button.compile-btn i {
+  font-size: 0.875rem;
 }
 
 @media (max-width: 768px) {

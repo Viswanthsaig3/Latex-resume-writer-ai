@@ -11,7 +11,8 @@ function Header({
   onToggleDarkMode,
   isDarkMode,
   onToggleView,
-  isSplitView 
+  isSplitView,
+  onCompile // Add new prop
 }) {
   return (
     <header className={`app-header ${isDarkMode ? 'dark-mode' : ''}`}>
@@ -33,6 +34,17 @@ function Header({
             <span>Compiling...</span>
           </div>
         )}
+        
+        {/* Add compile button */}
+        <button 
+          className="tool-button compile-btn"
+          onClick={onCompile}
+          disabled={isCompiling}
+          title="Compile LaTeX"
+        >
+          <i className="fa fa-sync"></i>
+          <span>Compile Now</span>
+        </button>
       </div>
       
       <div className="header-right">

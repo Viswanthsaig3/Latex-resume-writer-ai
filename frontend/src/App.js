@@ -40,6 +40,23 @@ function App() {
     []
   );
 
+  // Add manual compile function
+  const handleCompile = async () => {
+    if (!latexCode || !latexCode.trim()) return;
+    
+    setIsCompiling(true);
+    setError(null);
+    try {
+      const response = await compileLatex(latexCode);
+      setPdfUrl(response.pdfUrl);
+    } catch (err) {
+      console.error('Compilation error:', err);
+      setError(err.response?.data?.error || 'Failed to compile LaTeX');
+    } finally {
+      setIsCompiling(false);
+    }
+  };
+
   // Trigger compilation when latex code changes
   useEffect(() => {
     if (latexCode && latexCode.trim()) {
@@ -115,6 +132,7 @@ function App() {
         isDarkMode={darkMode}
         onToggleView={toggleView}
         isSplitView={isSplitView}
+        onCompile={handleCompile} // Add the new prop
       />
       
       <div className="main-content">
