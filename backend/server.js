@@ -20,7 +20,10 @@ const axios = require('axios');
 const app = express();
 // Use PORT from environment variable provided by Render, default to 5001 for local
 const PORT = process.env.PORT || 5001; 
-const FRONTEND_URL = process.env.CORS_ORIGIN || 'http://localhost:3000'; // Get frontend URL from env
+const FRONTEND_URL = 'https://latex-resume-writer-ai-1.onrender.com'; // Always include deployed frontend
+const LOCAL_URL = 'http://localhost:3000';
+
+const ALLOWED_ORIGINS = [FRONTEND_URL, LOCAL_URL];
 
 // Available AI models through OpenRouter and OpenAI
 const AI_MODELS = {
@@ -67,8 +70,9 @@ const OPENAI_MODEL_NAMES = {
 
 // Middleware
 app.use(cors({
-  origin: FRONTEND_URL, // Use the environment variable
-  credentials: true
+  origin: ALLOWED_ORIGINS,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(bodyParser.json({ limit: '10mb' })); // Increase limit for large LaTeX files
 app.use(morgan('dev'));
@@ -641,6 +645,6 @@ app.get('/ping', (req, res) => {
 app.listen(PORT, () => {
   // Render injects the host automatically, listen on 0.0.0.0 for Docker compatibility
   console.log(`Server running on port ${PORT}`); 
-  console.log(`Accepting requests from: ${FRONTEND_URL}`);
+  console.log(`Accepting requests from: ${ALLOWED_ORIGINS.join(', ')}`);
   // console.log(`Test the server by visiting: http://localhost:${PORT}/ping`); // Comment out or remove local test message
 });
