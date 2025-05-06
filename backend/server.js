@@ -16,6 +16,9 @@ const morgan = require('morgan');
 const { Configuration, OpenAIApi } = require("openai"); // Add OpenAI for AI assistance
 const axios = require('axios');
 
+// Check if running on Render
+const isRunningOnRender = process.env.RENDER === 'true';
+
 // Initialize express app
 const app = express();
 // Use PORT from environment variable provided by Render, default to 5001 for local
@@ -134,163 +137,98 @@ app.post('/compile', async (req, res) => {
     // Write LaTeX to file
     const mainTexFile = path.join(sessionDir, 'main.tex');
     await fs.writeFile(mainTexFile, latex, 'utf8');
-    console.log('LaTeX file written to:', mainTexFile);
     
-    // Check if Docker is available
-    try {
-      console.log('Checking Docker availability...');
-      await new Promise((resolve, reject) => {
-        exec('docker --version', (error) => {
-          if (error) {
-            console.error('Docker is not available:', error.message);
-            reject(new Error('Docker is not installed or running. Please make sure Docker is installed and running.'));
-          } else {
-            console.log('Docker is available, proceeding with compilation');
-            resolve();
-          }
-        });
-      });
-    } catch (dockerError) {
-      throw dockerError;
-    }
-    
-    // Try local compilation first, fall back to Docker if local fails
-    console.log('Trying local LaTeX compilation...');
-    try {
-      await new Promise((resolve, reject) => {
-        // Check if pdflatex is installed locally
-        exec('pdflatex --version', (error) => {
-          if (error) {
-            console.log('Local pdflatex not available, will use Docker instead');
-            resolve(false);
-          } else {
-            console.log('Local pdflatex found, using it for compilation');
-            resolve(true);
-          }
-        });
-      }).then(async (hasLocalLatex) => {
-        if (hasLocalLatex) {
-          // Use local pdflatex
-          await new Promise((localResolve, localReject) => {
-            const localCmd = `pdflatex -interaction=nonstopmode -halt-on-error -output-directory="${sessionDir}" "${mainTexFile}"`;
-            exec(localCmd, { timeout: 30000 }, (error, stdout, stderr) => {
-              if (error) {
-                console.error('Local compilation failed:', error.message);
-                localReject(stderr || stdout || 'Local PDF compilation failed');
-              } else {
-                console.log('Local compilation succeeded');
-                localResolve();
-              }
-            });
-          });
-        } else {
-          // Fall back to Docker with normalized path
-          const normalizedPath = sessionDir.replace(/\\/g, '/').replace(/^C:/, '/c');
-          
-          // Define Docker image: prefer local-latex-env if it exists, otherwise use blang/latex
-          let dockerImageName = 'blang/latex'; // Default fallback
-          let localImageExists = false;
-          
-          try {
-            // Check if local-latex-env image exists
-            await new Promise((resolveCheck, rejectCheck) => {
-              exec('docker image inspect local-latex-env', (error) => {
-                if (!error) {
-                  localImageExists = true;
-                }
-                resolveCheck(); // Always resolve, even if inspect fails
-              });
-            });
-            
-            if (localImageExists) {
-              console.log("Found local Docker image 'local-latex-env'. Using it.");
-              dockerImageName = 'local-latex-env';
+    // Skip Docker check on Render
+    if (!isRunningOnRender) {
+      // Original Docker availability check
+      try {
+        console.log('Checking Docker availability...');
+        await new Promise((resolve, reject) => {
+          exec('docker --version', (error) => {
+            if (error) {
+              console.error('Docker is not available:', error.message);
+              reject(new Error('Docker is not installed or running. Please make sure Docker is installed and running.'));
             } else {
-              console.log("Local image 'local-latex-env' not found. Using fallback 'blang/latex'.");
+              console.log('Docker is available, proceeding with compilation');
+              resolve();
             }
-          } catch (checkError) {
-             console.warn("Error checking for local Docker image:", checkError.message);
-             console.log("Falling back to 'blang/latex' due to check error.");
-          }
-
-          // If using blang/latex (because local wasn't found or check failed), ensure it's pulled
-          if (dockerImageName === 'blang/latex') {
-            console.log("Ensuring 'blang/latex' image is available...");
-            await new Promise((pullResolve, pullReject) => { // Added pullReject
-              console.log('Checking if blang/latex image exists locally...');
-              exec('docker image inspect blang/latex', async (inspectError) => {
-                if (inspectError) { // Image doesn't exist locally
-                  console.log('Docker image blang/latex not found locally. Pulling image (this may take a while)...');
-                  try {
-                    // Use a longer timeout for pulling
-                    await new Promise((resolvePull, rejectPull) => {
-                      exec('docker pull blang/latex', { timeout: 300000 }, (pullError) => {
-                        if (pullError) {
-                          console.error('Failed to pull Docker image blang/latex:', pullError.message);
-                          pullReject(pullError); // Reject the outer promise if pull fails
-                        } else {
-                          console.log('Successfully pulled Docker image blang/latex');
-                          resolvePull();
-                        }
-                      });
-                    });
-                    pullResolve(); // Resolve outer promise after successful pull
-                  } catch (pullErr) {
-                    console.error('Error during Docker image pull:', pullErr);
-                    pullReject(pullErr); // Reject the outer promise if pull fails
-                  }
-                } else { // Image exists locally
-                  console.log('Docker image blang/latex already exists locally.');
-                  pullResolve(); // Resolve outer promise as image is available
-                }
-              });
-            });
-          }
-          
-          const dockerCmd = `docker run --rm -v "${normalizedPath}:/data" ${dockerImageName} pdflatex -interaction=nonstopmode main.tex`;
-          
-          await new Promise((dockerResolve, dockerReject) => {
-            console.log('Docker command:', dockerCmd);
-            exec(dockerCmd, { cwd: sessionDir, timeout: 30000 }, (error, stdout, stderr) => {
-              if (error) {
-                console.error('Docker compilation error:', error.message);
-                dockerReject(stderr || stdout || 'Docker PDF compilation failed');
-              } else {
-                console.log('Docker compilation succeeded');
-                dockerResolve();
-              }
-            });
           });
-        }
-      });
-    } catch (compError) {
-      // If the error is specifically about fontawesome5 and we used blang/latex, provide a hint
-      if (dockerImageName === 'blang/latex' && compError.message && compError.message.includes('fontawesome5.sty')) {
-         console.error("Compilation failed with blang/latex due to missing fontawesome5. Suggest running build-docker-image.bat.");
-         throw new Error(`Failed to generate PDF. The required 'fontawesome5' package is missing in the fallback Docker image. Please try running the 'build-docker-image.bat' script to create a local image with the necessary packages.`);
+        });
+      } catch (dockerError) {
+        throw dockerError;
       }
-      throw compError; // Re-throw other errors
     }
     
-    // Check if PDF was generated
-    const pdfPath = path.join(sessionDir, 'main.pdf');
-    if (!await fs.pathExists(pdfPath)) {
-      throw new Error('Failed to generate PDF');
+    // Use local pdflatex directly on Render (it's installed via Dockerfile)
+    console.log('Running pdflatex compilation...');
+    try {
+      await new Promise((localResolve, localReject) => {
+        const localCmd = `pdflatex -interaction=nonstopmode -halt-on-error -output-directory="${sessionDir}" "${mainTexFile}"`;
+        exec(localCmd, { timeout: 30000 }, (error, stdout, stderr) => {
+          if (error) {
+            console.error('Local compilation failed:', error.message);
+            localReject(stderr || stdout || 'Local PDF compilation failed');
+          } else {
+            console.log('Local compilation succeeded');
+            localResolve();
+          }
+        });
+      });
+
+      // Check if PDF was generated
+      const pdfPath = path.join(sessionDir, 'main.pdf');
+      if (!await fs.pathExists(pdfPath)) {
+        throw new Error('Failed to generate PDF');
+      }
+      
+      // Copy to output with a fixed name for consistent access
+      const outputPdf = path.join(outputDir, 'resume.pdf');
+      await fs.copy(pdfPath, outputPdf, { overwrite: true });
+      
+      // Clean up session directory
+      await fs.remove(sessionDir);
+      
+      res.json({
+        success: true,
+        pdfUrl: '/preview/resume.pdf',
+        message: 'LaTeX compiled successfully'
+      });
+      
+    } catch (error) {
+      console.error('Compilation error:', error);
+      
+      // Try to read log file if it exists
+      let errorMessage = error.message;
+      const logFile = path.join(sessionDir, 'main.log');
+      
+      try {
+        if (await fs.pathExists(logFile)) {
+          const logContent = await fs.readFile(logFile, 'utf8');
+          // Extract relevant error from log
+          const errorLines = logContent.split('\n')
+            .filter(line => line.includes('!') || line.includes('Error'))
+            .join('\n');
+          
+          if (errorLines) {
+            errorMessage = errorLines;
+          }
+        }
+      } catch (logError) {
+        console.error('Error reading log file:', logError);
+      }
+      
+      // Clean up session directory
+      try {
+        await fs.remove(sessionDir);
+      } catch (cleanupError) {
+        console.error('Error cleaning up:', cleanupError);
+      }
+      
+      res.status(500).json({
+        success: false,
+        error: errorMessage
+      });
     }
-    
-    // Copy to output with a fixed name for consistent access
-    const outputPdf = path.join(outputDir, 'resume.pdf');
-    await fs.copy(pdfPath, outputPdf, { overwrite: true });
-    
-    // Clean up session directory
-    await fs.remove(sessionDir);
-    
-    res.json({
-      success: true,
-      pdfUrl: '/preview/resume.pdf',
-      message: 'LaTeX compiled successfully'
-    });
-    
   } catch (error) {
     console.error('Compilation error:', error);
     
