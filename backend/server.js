@@ -77,17 +77,28 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     if (ALLOWED_ORIGINS.indexOf(origin) === -1) {
+      console.log(`Origin ${origin} not allowed by CORS policy`);
       return callback(null, false);
     }
     return callback(null, true);
   },
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 app.use(bodyParser.json({ limit: '10mb' })); // Increase limit for large LaTeX files
 app.use(morgan('dev'));
-// Serve static files from the 'output' directory relative to the current directory
-app.use('/preview', express.static(path.join(__dirname, 'output'))); 
+
+// Set up CORS for static files
+app.use('/preview', (req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+  }
+  next();
+}, express.static(path.join(__dirname, 'output')));
 
 // Create output directory if it doesn't exist
 const outputDir = process.env.OUTPUT_DIR || path.join(__dirname, 'output');
@@ -597,6 +608,20 @@ app.get('/ping', (req, res) => {
   res.json({ message: 'Backend server is running' });
 });
 
+// Get absolute URL for PDF
+const getAbsolutePdfUrl = (pdfUrl) => {
+  // Check if we're running on Render.com
+  if (isRunningOnRender) {
+    // Use the actual deployment URL from environment or default to FRONTEND_URL without the protocol
+    const hostname = process.env.RENDER_EXTERNAL_URL || 
+                     FRONTEND_URL.replace(/^https?:\/\//, '');
+    const protocol = 'https'; // Always use HTTPS in production
+    const baseUrl = `${protocol}://${hostname}`;
+    return `${baseUrl}${pdfUrl}`;
+  }
+  return pdfUrl;
+};
+
 // Start server
 app.listen(PORT, () => {
   // Render injects the host automatically, listen on 0.0.0.0 for Docker compatibility
@@ -617,3 +642,6 @@ const getFileUrl = () => {
   }
   return pdfUrl;
 };
+
+// At the bottom of the file, log the actual CORS configuration
+console.log('CORS allowed origins:', ALLOWED_ORIGINS);
